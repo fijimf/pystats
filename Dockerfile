@@ -28,4 +28,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
 # Run with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "app:app"] 
+CMD ["gunicorn", "--bind", "localhost:8000", "--workers", "4", "app:app"] 
