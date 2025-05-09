@@ -76,7 +76,7 @@ pipeline {
                         done
                         
                         # Test the health endpoint
-                        curl -f http://localhost:8000/api/health || {
+                        curl -f http://127.0.0.1:8000/api/health || {
                             echo "Health check failed"
                             docker logs test-container
                             exit 1
