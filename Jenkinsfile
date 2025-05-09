@@ -63,7 +63,7 @@ pipeline {
                         # Wait for application to be ready
                         echo "Waiting for application to be ready..."
                         for i in {1..30}; do
-                            if curl -s http://localhost:8000/api/health > /dev/null; then
+                            if curl -s http://127.0.0.1:8000/api/health > /dev/null; then
                                 echo "Application is ready!"
                                 break
                             fi
