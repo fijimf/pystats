@@ -23,21 +23,65 @@ pipeline {
         stage('Test Docker Image') {
             steps {
                 script {
-                    // Start test database
-                    sh 'docker run -d --name test-db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=p@ssw0rd -e POSTGRES_DB=deepfij postgres:15'
-                    sh 'sleep 10'  // Wait for database to be ready
+                    // Create a custom network for the containers
+                    sh 'docker network create test-network || true'
+                    
+                    // Start test database with explicit network
+                    sh '''
+                        docker run -d --name test-db \
+                            --network test-network \
+                            -e POSTGRES_USER=postgres \
+                            -e POSTGRES_PASSWORD=p@ssw0rd \
+                            -e POSTGRES_DB=deepfij \
+                            postgres:15
+                        
+                        # Wait for database to be ready
+                        echo "Waiting for database to be ready..."
+                        for i in {1..30}; do
+                            if docker exec test-db pg_isready -U postgres; then
+                                echo "Database is ready!"
+                                break
+                            fi
+                            if [ $i -eq 30 ]; then
+                                echo "Database failed to start"
+                                exit 1
+                            fi
+                            sleep 1
+                        done
+                    '''
                     
                     // Run application with database connection
-                    sh """
+                    sh '''
                         docker run -d --name test-container \
-                            --link test-db:db \
-                            -e DATABASE_URL=postgresql://postgres:p%40ssw0rd@db:5432/deepfij \
+                            --network test-network \
+                            -e DATABASE_URL=postgresql://postgres:p%40ssw0rd@test-db:5432/deepfij \
                             -e FLASK_APP=app.py \
                             -e FLASK_ENV=production \
+                            -p 8000:8000 \
                             ${DOCKER_IMAGE}:${DOCKER_TAG}
-                        sleep 10  # Wait for container to start
-                        curl -f http://localhost:8000/api/health || exit 1
-                    """
+                        
+                        # Wait for application to be ready
+                        echo "Waiting for application to be ready..."
+                        for i in {1..30}; do
+                            if curl -s http://localhost:8000/api/health > /dev/null; then
+                                echo "Application is ready!"
+                                break
+                            fi
+                            if [ $i -eq 30 ]; then
+                                echo "Application failed to start"
+                                docker logs test-container
+                                exit 1
+                            fi
+                            sleep 1
+                        done
+                        
+                        # Test the health endpoint
+                        curl -f http://localhost:8000/api/health || {
+                            echo "Health check failed"
+                            docker logs test-container
+                            exit 1
+                        }
+                    '''
                 }
             }
         }
@@ -45,9 +89,22 @@ pipeline {
     
     post {
         always {
-            // Clean up Docker containers and images
+            // Debug information
+            sh '''
+                echo "=== Container Status ==="
+                docker ps -a
+                echo "=== Test Container Logs ==="
+                docker logs test-container
+                echo "=== Database Container Logs ==="
+                docker logs test-db
+                echo "=== Network Information ==="
+                docker network inspect test-network
+            '''
+            
+            // Clean up Docker containers and network
             sh 'docker stop test-container test-db || true'
             sh 'docker rm test-container test-db || true'
+            sh 'docker network rm test-network || true'
             cleanWs()
         }
         success {
