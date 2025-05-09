@@ -44,6 +44,7 @@ pipeline {
                             fi
                             if [ $i -eq 30 ]; then
                                 echo "Database failed to start"
+                                docker logs test-db
                                 exit 1
                             fi
                             sleep 1
