@@ -124,13 +124,13 @@ def calc_by_dates(processor_func):
     return team_ratings_list
 
 def least_squares_power_esitimator(df):
-    teams = pd.unique(df[['home_team', 'away_team']].values.ravel())
+    teams = pd.unique(df[['home_code', 'away_code']].values.ravel())
     team_to_idx = {team: i for i, team in enumerate(teams)}
     n_teams = len(teams)
     n_games = len(df)
     X = lil_matrix((n_games, n_teams))  # Use LIL format for efficient row operations
 
-    for i, (t1, t2) in enumerate(zip(df['home_team'], df['away_team'])):
+    for i, (t1, t2) in enumerate(zip(df['home_code'], df['away_code'])):
         X[i, team_to_idx[t1]] = 1  # +1 for team1
         X[i, team_to_idx[t2]] = -1  # -1 for team2
 
@@ -141,13 +141,13 @@ def least_squares_power_esitimator(df):
     return team_ratings
 
 def logistic_power_esitimator(df):
-    teams = pd.unique(df[['home_team', 'away_team']].values.ravel())
+    teams = pd.unique(df[['home_code', 'away_code']].values.ravel())
     team_to_idx = {team: i for i, team in enumerate(teams)}
     n_teams = len(teams)
     n_games = len(df)
     X = lil_matrix((n_games, n_teams))  # Use LIL format for efficient row operations
 
-    for i, (t1, t2) in enumerate(zip(df['home_team'], df['away_team'])):
+    for i, (t1, t2) in enumerate(zip(df['home_code'], df['away_code'])):
         X[i, team_to_idx[t1]] = 1  # +1 for team1
         X[i, team_to_idx[t2]] = -1  # -1 for team2
 

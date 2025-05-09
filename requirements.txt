@@ -6,4 +6,5 @@ numpy==1.26.4
 scipy==1.12.0
 python-dotenv==1.0.1
 marshmallow==3.20.2
-scikit-learn==1.6.1 
+scikit-learn==1.6.1
+gunicorn==21.2.0 
