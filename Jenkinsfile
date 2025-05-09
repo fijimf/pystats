@@ -8,14 +8,13 @@ pipeline {
         // DOCKER_REGISTRY = 'your-docker-registry' // Replace with your Docker registry
     }
     stages {
-        
         stage('Build Docker Image') {
             steps {
-
-                 if (env.BRANCH_NAME.startsWith('release')) {
+                script {
+                    if (env.BRANCH_NAME.startsWith('release')) {
                         sh 'docker build -t ${DOCKER_IMAGE}:${IMAGE_VERSION} -t ${DOCKER_IMAGE}:latest .'
                     } else {
-
+                        sh 'docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .'
                     }
                 }
             }
@@ -49,4 +48,4 @@ pipeline {
             echo 'Pipeline failed!'
         }
     }
-} 
+}
