@@ -44,7 +44,7 @@ def get_season_games():
     """Get statistical analysis of team data"""
     try:
         year = request.args.get('year')
-        engine = create_engine('postgresql://postgres:p%40ssw0rd@localhost:5432/deepfij')
+        engine = create_engine(os.getenv('DATABASE_URL'))
         df = pd.read_sql("""SELECT s.year, g.date, h.long_name home_team, h.abbreviation home_code, g.home_score, a.long_name away_team, a.abbreviation away_code, g.away_score, g.neutral_site FROM game g
                 INNER JOIN season s ON g.season_id = s.id
                 INNER JOIN team h ON g.home_team_id = h.id
@@ -97,7 +97,7 @@ def get_rankings_logistic():
 
 def load_games_by_season():
     year = request.args.get('year')
-    engine = create_engine('postgresql://postgres:p%40ssw0rd@localhost:5432/deepfij')
+    engine = create_engine(os.getenv('DATABASE_URL'))
     df = pd.read_sql("""SELECT s.year, g.date, h.long_name home_team, h.abbreviation home_code, g.home_score, a.long_name away_team, a.abbreviation away_code, g.away_score, g.neutral_site FROM game g
                 INNER JOIN season s ON g.season_id = s.id
                 INNER JOIN team h ON g.home_team_id = h.id
