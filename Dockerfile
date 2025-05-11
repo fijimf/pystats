@@ -23,7 +23,7 @@ COPY . .
 ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
-ENV DATABASE_URL=postgresql://postgres:postgres@db:5432/pystats
+ENV DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
 
 # Expose port
 EXPOSE 8000
