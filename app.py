@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
+import joblib
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 import os
@@ -9,8 +10,11 @@ from scipy import stats
 from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import lsqr
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.metrics import accuracy_score
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder
 
 # Load environment variables
 load_dotenv()
@@ -95,6 +99,64 @@ def get_rankings_logistic():
             'message': str(e)
             }), 500
 
+@app.route('/train', methods=['POST'])
+def train():
+   
+    payload = request.get_json()
+    X = pd.DataFrame(payload['features'])
+    print(X)
+    print(X.columns)
+    print(X.dtypes)
+    print(X.head()) 
+    print(X.info())
+    y = pd.DataFrame(payload['targets'])
+    print(y)
+    print(y.columns)
+    print(y.dtypes)
+    print(y.head())
+    print(y.info())
+
+    key = payload['key']
+    asOf = payload['asOf']
+
+    createPipeline(key, asOf, X, y)
+    return createPipeline(key, asOf, X, y)
+
+def createPipeline(key, asOf, X, y):
+    try:
+      # Dispatch to different training functions based on the key
+        if key == 'basic-margin':
+            pipeline =train_base_model(X, y, asOf)
+        elif key == 'neural':
+            pipeline = train_neural_model(X, y, asOf)
+        else:
+            raise ValueError(f"Unknown model type: {key}")
+
+        # Create a pipeline with preprocessing and model
+        pipeline.fit(X, y)
+        score = pipeline.score(X, y)
+        print(f"Score: {score}")
+        joblib.dump(pipeline, key+'_'+asOf+'.pkl') 
+        return jsonify({
+            'status': 'trained',
+            'message': f"Score: {score}",
+            'pipeline': key+'_'+asOf+'.pkl'
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+def train_base_model(X, y, asOf):
+    pipeline = Pipeline([
+        ('onehot_home', OneHotEncoder(sparse_output=False, handle_unknown='ignore', categories='auto')),
+        ('classifier', LinearRegression())]
+    )
+    return pipeline
+
+    
 def load_games_by_season():
     year = request.args.get('year')
     engine = create_engine(os.getenv('DATABASE_URL'))
