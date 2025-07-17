@@ -23,8 +23,15 @@ pipeline {
         stage('Test Docker Image') {
             steps {
                 script {
+                    // Clean up any existing containers/network first
+                    sh '''
+                        docker stop test-container test-db || true
+                        docker rm test-container test-db || true
+                        docker network rm test-network || true
+                    '''
+                    
                     // Create a custom network for the containers
-                    sh 'docker network create test-network || true'
+                    sh 'docker network create test-network'
                     
                     // Start test database with explicit network
                     sh '''
@@ -55,11 +62,11 @@ pipeline {
                     sh '''
                         docker run -d --name test-container \
                             --network test-network \
-                            -e DATABASE_URL=postgresql://postgres:p%40ssw0rd@test-db:5432/deepfij \
+                            -e DATABASE_URL=postgresql://postgres:p@ssw0rd@test-db:5432/deepfij \
                             -e FLASK_APP=app.py \
                             -e FLASK_ENV=production \
                             -p 8000:8000 \
-                            ${DOCKER_IMAGE}:${DOCKER_TAG}
+                            ${DOCKER_IMAGE}:${env.BRANCH_NAME.startsWith('release') ? 'latest' : env.BUILD_NUMBER}
                         
                         # Wait for application to be ready
                         echo "Waiting for application to be ready..."
@@ -95,17 +102,19 @@ pipeline {
                 echo "=== Container Status ==="
                 docker ps -a
                 echo "=== Test Container Logs ==="
-                docker logs test-container
+                docker logs test-container || echo "test-container not found"
                 echo "=== Database Container Logs ==="
-                docker logs test-db
+                docker logs test-db || echo "test-db not found"
                 echo "=== Network Information ==="
-                docker network inspect test-network
+                docker network inspect test-network || echo "test-network not found"
             '''
             
             // Clean up Docker containers and network
-            sh 'docker stop test-container test-db || true'
-            sh 'docker rm test-container test-db || true'
-            sh 'docker network rm test-network || true'
+            sh '''
+                docker stop test-container test-db || true
+                docker rm test-container test-db || true
+                docker network rm test-network || true
+            '''
             cleanWs()
         }
         success {
