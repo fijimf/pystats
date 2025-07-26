@@ -23,6 +23,7 @@ app = Flask(__name__)
 
 # Database Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+print(app.config['SQLALCHEMY_DATABASE_URI'])
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize SQLAlchemy
@@ -233,4 +234,6 @@ def logistic_power_esitimator(df):
     return team_ratings
 
 if __name__ == '__main__':
+    print("Starting PyStats API...")
+    print("Database URL: ", os.getenv('DATABASE_URL'))
     app.run(debug=True) 
