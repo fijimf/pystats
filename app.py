@@ -44,33 +44,6 @@ def health_check():
         'message': 'PyStats API is running'
     })
 
-@app.route('/api/games', methods=['GET'])
-def get_season_games():
-    """Get statistical analysis of team data"""
-    try:
-        year = request.args.get('year')
-        engine = create_engine(os.getenv('DATABASE_URL'))
-        df = pd.read_sql("""SELECT s.year, g.date, h.long_name home_team, h.abbreviation home_code, g.home_score, a.long_name away_team, a.abbreviation away_code, g.away_score, g.neutral_site FROM game g
-                INNER JOIN season s ON g.season_id = s.id
-                INNER JOIN team h ON g.home_team_id = h.id
-                INNER JOIN team a ON g.away_team_id = a.id
-                WHERE s.year = {} and g.home_score>0 and g.away_score>0
-                ORDER BY date, h.long_name, a.long_name""".format(year), engine)
-        # Get team_id from query parameters
-        team_id = request.args.get('team_id')
-        if team_id != None:
-            df = df[(df['home_code'] == team_id) | (df['away_code'] == team_id)]
-        
-        return jsonify({
-            'status': 'success',
-            'data': df.to_dict(orient='records')
-        })
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
 @app.route('/api/rankings/lse', methods=['GET'])
 def get_rankings_lse():
     """Get statistical analysis of team data"""
