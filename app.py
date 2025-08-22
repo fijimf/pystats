@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
+from flask_restx import Api, Resource, fields
 import joblib
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
@@ -29,72 +30,165 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Initialize SQLAlchemy
 db = SQLAlchemy(app)
 
-# Import models after db initialization to avoid circular imports
-from models import *
+# Initialize Flask-RESTX with API documentation
+api = Api(app, 
+    title='PyStats API',
+    version='1.0',
+    description='Statistical analysis API for sports data with machine learning capabilities',
+    doc='/swagger/',
+    prefix='/api'
+)
+
+# Import and create models after db initialization to avoid circular imports
+from models import create_models
 
 # Reflect the database tables
 with app.app_context():
     db.Model.metadata.reflect(bind=db.engine)
+    # Create the models
+    TeamStatistic = create_models(db)
 
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    """Basic health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'message': 'PyStats API is running'
-    })
+# Define API models for documentation
+health_model = api.model('Health', {
+    'status': fields.String(description='API health status'),
+    'message': fields.String(description='Health check message')
+})
 
-@app.route('/api/rankings/lse', methods=['GET'])
-def get_rankings_lse():
-    """Get statistical analysis of team data"""
-    try:
-        team_ratings_list = calc_by_dates(least_squares_power_esitimator)       
-        return jsonify({
-            'status': 'success',
-            'data': team_ratings_list
-        })
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-            }), 500
+error_model = api.model('Error', {
+    'status': fields.String(description='Error status'),
+    'message': fields.String(description='Error message')
+})
 
-@app.route('/api/rankings/logistic', methods=['GET'])
-def get_rankings_logistic():
-    try:
-        team_ratings_list = calc_by_dates(logistic_power_esitimator)       
-        return jsonify({
-            'status': 'success',
-            'data': team_ratings_list
-        })
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-            }), 500
+rankings_response_model = api.model('RankingsResponse', {
+    'status': fields.String(description='Response status'),
+    'data': fields.Raw(description='Team rankings data by date')
+})
 
-@app.route('/train', methods=['POST'])
-def train():
-   
-    payload = request.get_json()
-    X = pd.DataFrame(payload['features'])
-    print(X)
-    print(X.columns)
-    print(X.dtypes)
-    print(X.head()) 
-    print(X.info())
-    y = pd.DataFrame(payload['targets'])
-    print(y)
-    print(y.columns)
-    print(y.dtypes)
-    print(y.head())
-    print(y.info())
+training_request_model = api.model('TrainingRequest', {
+    'features': fields.Raw(required=True, description='Feature data for training'),
+    'targets': fields.Raw(required=True, description='Target data for training'),
+    'key': fields.String(required=True, description='Model type key (basic-margin, neural)'),
+    'asOf': fields.String(required=True, description='Training date/version identifier')
+})
 
-    key = payload['key']
-    asOf = payload['asOf']
+training_response_model = api.model('TrainingResponse', {
+    'status': fields.String(description='Training status'),
+    'message': fields.String(description='Training result message'),
+    'pipeline': fields.String(description='Saved pipeline filename')
+})
 
-    createPipeline(key, asOf, X, y)
-    return createPipeline(key, asOf, X, y)
+games_response_model = api.model('GamesResponse', {
+    'status': fields.String(description='Response status'),
+    'data': fields.Raw(description='Games data for the specified season'),
+    'count': fields.Integer(description='Number of games returned')
+})
+
+@api.route('/health')
+class HealthCheck(Resource):
+    @api.doc('health_check')
+    @api.marshal_with(health_model)
+    def get(self):
+        """Health check endpoint"""
+        return {
+            'status': 'healthy',
+            'message': 'PyStats API is running'
+        }
+
+@api.route('/games')
+class Games(Resource):
+    @api.doc('get_games')
+    @api.marshal_with(games_response_model)
+    @api.response(500, 'Internal Server Error', error_model)
+    @api.param('year', 'Season year to filter games', type='string', required=False)
+    @api.param('team_id', 'Team ID to filter games', type='string', required=False)
+    def get(self):
+        """Get season games data with optional filtering
+        
+        Returns games data for a specified season. Can be filtered by year and team_id.
+        """
+        try:
+            year = request.args.get('year')
+            team_id = request.args.get('team_id')
+            df = load_games_by_season(year=year, team_id=team_id)
+            games_data = df.to_dict('records') if not df.empty else []
+            return {
+                'status': 'success',
+                'data': games_data,
+                'count': len(games_data)
+            }
+        except Exception as e:
+            api.abort(500, status='error', message=str(e))
+
+@api.route('/rankings/lse')
+class LSERankings(Resource):
+    @api.doc('get_lse_rankings')
+    @api.marshal_with(rankings_response_model)
+    @api.response(500, 'Internal Server Error', error_model)
+    def get(self):
+        """Get least squares power rankings over time
+        
+        Returns team power rankings calculated using least squares estimation,
+        computed for each date in the current season.
+        """
+        try:
+            team_ratings_list = calc_by_dates(least_squares_power_esitimator)       
+            return {
+                'status': 'success',
+                'data': team_ratings_list
+            }
+        except Exception as e:
+            api.abort(500, status='error', message=str(e))
+
+@api.route('/rankings/logistic')
+class LogisticRankings(Resource):
+    @api.doc('get_logistic_rankings')
+    @api.marshal_with(rankings_response_model)
+    @api.response(500, 'Internal Server Error', error_model)
+    def get(self):
+        """Get logistic regression power rankings over time
+        
+        Returns team power rankings calculated using logistic regression,
+        computed for each date in the current season.
+        """
+        try:
+            team_ratings_list = calc_by_dates(logistic_power_esitimator)       
+            return {
+                'status': 'success',
+                'data': team_ratings_list
+            }
+        except Exception as e:
+            api.abort(500, status='error', message=str(e))
+
+@api.route('/train')
+class ModelTraining(Resource):
+    @api.doc('train_model')
+    @api.expect(training_request_model)
+    @api.marshal_with(training_response_model)
+    @api.response(500, 'Internal Server Error', error_model)
+    def post(self):
+        """Train a machine learning model with provided data
+        
+        Accepts training features and targets to create and save a ML pipeline.
+        Supports different model types specified by the 'key' parameter.
+        """
+        payload = api.payload
+        X = pd.DataFrame(payload['features'])
+        print(X)
+        print(X.columns)
+        print(X.dtypes)
+        print(X.head()) 
+        print(X.info())
+        y = pd.DataFrame(payload['targets'])
+        print(y)
+        print(y.columns)
+        print(y.dtypes)
+        print(y.head())
+        print(y.info())
+
+        key = payload['key']
+        asOf = payload['asOf']
+
+        return createPipeline(key, asOf, X, y)
 
 def createPipeline(key, asOf, X, y):
     try:
@@ -111,16 +205,13 @@ def createPipeline(key, asOf, X, y):
         score = pipeline.score(X, y)
         print(f"Score: {score}")
         joblib.dump(pipeline, key+'_'+asOf+'.pkl') 
-        return jsonify({
+        return {
             'status': 'trained',
             'message': f"Score: {score}",
             'pipeline': key+'_'+asOf+'.pkl'
-        }), 200
+        }
     except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
+        api.abort(500, status='error', message=str(e))
 
 
 def train_base_model(X, y, asOf):
@@ -131,15 +222,34 @@ def train_base_model(X, y, asOf):
     return pipeline
 
     
-def load_games_by_season():
-    year = request.args.get('year')
+def load_games_by_season(year=None, team_id=None):
+    if year is None:
+        year = request.args.get('year')
+    if team_id is None:
+        team_id = request.args.get('team_id')
+    
     engine = create_engine(os.getenv('DATABASE_URL'))
-    df = pd.read_sql("""SELECT s.year, g.date, h.long_name home_team, h.abbreviation home_code, g.home_score, a.long_name away_team, a.abbreviation away_code, g.away_score, g.neutral_site FROM game g
-                INNER JOIN season s ON g.season_id = s.id
-                INNER JOIN team h ON g.home_team_id = h.id
-                INNER JOIN team a ON g.away_team_id = a.id
-                WHERE s.year = {} and g.home_score>0 and g.away_score>0
-                ORDER BY date, h.long_name, a.long_name""".format(year), engine)
+    
+    base_query = """SELECT s.year, g.date, h.long_name home_team, h.abbreviation home_code, g.home_score, 
+                           a.long_name away_team, a.abbreviation away_code, g.away_score, g.neutral_site 
+                    FROM game g
+                    INNER JOIN season s ON g.season_id = s.id
+                    INNER JOIN team h ON g.home_team_id = h.id
+                    INNER JOIN team a ON g.away_team_id = a.id
+                    WHERE g.home_score>0 and g.away_score>0"""
+    
+    conditions = []
+    if year:
+        conditions.append(f"s.year = {year}")
+    if team_id:
+        conditions.append(f"(h.id = {team_id} OR a.id = {team_id})")
+    
+    if conditions:
+        base_query += " AND " + " AND ".join(conditions)
+    
+    base_query += " ORDER BY date, h.long_name, a.long_name"
+    
+    df = pd.read_sql(base_query, engine)
     return df
 
 def calc_by_dates(processor_func):
