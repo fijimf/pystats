@@ -77,11 +77,6 @@ training_response_model = api.model('TrainingResponse', {
     'pipeline': fields.String(description='Saved pipeline filename')
 })
 
-games_response_model = api.model('GamesResponse', {
-    'status': fields.String(description='Response status'),
-    'data': fields.Raw(description='Games data for the specified season'),
-    'count': fields.Integer(description='Number of games returned')
-})
 
 @api.route('/health')
 class HealthCheck(Resource):
@@ -94,30 +89,6 @@ class HealthCheck(Resource):
             'message': 'PyStats API is running'
         }
 
-@api.route('/games')
-class Games(Resource):
-    @api.doc('get_games')
-    @api.marshal_with(games_response_model)
-    @api.response(500, 'Internal Server Error', error_model)
-    @api.param('year', 'Season year to filter games', type='string', required=False)
-    @api.param('team_id', 'Team ID to filter games', type='string', required=False)
-    def get(self):
-        """Get season games data with optional filtering
-        
-        Returns games data for a specified season. Can be filtered by year and team_id.
-        """
-        try:
-            year = request.args.get('year')
-            team_id = request.args.get('team_id')
-            df = load_games_by_season(year=year, team_id=team_id)
-            games_data = df.to_dict('records') if not df.empty else []
-            return {
-                'status': 'success',
-                'data': games_data,
-                'count': len(games_data)
-            }
-        except Exception as e:
-            api.abort(500, status='error', message=str(e))
 
 @api.route('/rankings/lse')
 class LSERankings(Resource):
@@ -222,7 +193,7 @@ def train_base_model(X, y, asOf):
     return pipeline
 
     
-def load_games_by_season(year=None, team_id=None):
+def _load_games_by_season(year=None, team_id=None):
     if year is None:
         year = request.args.get('year')
     if team_id is None:
@@ -253,7 +224,7 @@ def load_games_by_season(year=None, team_id=None):
     return df
 
 def calc_by_dates(processor_func):
-    df = load_games_by_season()
+    df = _load_games_by_season()
     min_date = df['date'].min()
     max_date = df['date'].max()
     dates = pd.date_range(start=min_date, end=max_date, freq='D')

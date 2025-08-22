@@ -55,10 +55,9 @@ docker run -e DATABASE_URL=postgresql://user:pass@host:5432/db -p 8000:8000 pyst
 
 #### API Endpoints (`app.py`)
 - `/api/health` - Health check endpoint
-- `/api/games` - Retrieve season games data with optional filtering by year and team_id
 - `/api/rankings/lse` - Least squares power rankings over time
 - `/api/rankings/logistic` - Logistic regression power rankings over time  
-- `/train` - POST endpoint for training ML models with custom pipelines
+- `/api/train` - POST endpoint for training ML models with custom pipelines
 
 #### Statistical Analysis Functions
 - `least_squares_power_esitimator()` - Uses sparse matrix operations (lil_matrix/lsqr) for team power ratings
