@@ -17,10 +17,10 @@ pip install -r requirements.txt
 export DATABASE_URL=postgresql://user:pass@host:5432/db
 
 # Run development server
-flask run
+python run.py
 
-# Run in debug mode (via app.py directly)
-python app.py
+# Or using Flask command
+export FLASK_APP=run.py && flask run
 ```
 
 ### Docker Development
@@ -40,36 +40,64 @@ docker run -e DATABASE_URL=postgresql://user:pass@host:5432/db -p 8000:8000 pyst
 ## Architecture Overview
 
 ### Core Application Structure
-- **Flask REST API** for statistical analysis of sports data
+- **Modular Flask REST API** for statistical analysis of sports data
 - **PostgreSQL database** with existing schema (uses SQLAlchemy reflection)
 - **Statistical computing** with pandas, numpy, scipy, and scikit-learn
 - **Machine learning pipelines** for predictive modeling
+- **Organized codebase** with separation of concerns and proper dependency injection
 
 ### Key Components
 
-#### Database Layer (`models.py`)
+#### Project Structure
+```
+app/
+├── __init__.py           # Application factory
+├── api/                  # API route modules
+│   ├── health.py        # Health check endpoints
+│   ├── rankings.py      # Rankings API endpoints
+│   └── training.py      # ML training endpoints
+├── config/               # Configuration management
+│   └── settings.py      # Environment-based configs
+├── models/               # Database models
+│   └── team_statistic.py # Database model definitions
+├── services/             # Business logic layer
+│   ├── data_service.py  # Database operations
+│   ├── ranking_service.py # Rankings calculations
+│   └── training_service.py # ML model training
+├── statistical/          # Statistical analysis modules
+│   ├── power_estimators.py # Team power rating algorithms
+│   └── margin_linear_regressor.py # Custom ML transformers
+└── utils/                # Utility functions
+    ├── errors.py        # Custom exceptions
+    └── logging.py       # Logging configuration
+```
+
+#### Database Layer (`app/models/`)
 - Uses SQLAlchemy reflection to map existing database tables
 - Primary model: `TeamStatistic` with fields: id, team_id, stat_type, value, timestamp
 - Database schema includes: game, season, team tables with relationships
 - Tables are reflected at runtime using `db.Model.metadata.reflect(bind=db.engine)`
 
-#### API Endpoints (`app.py`)
+#### API Layer (`app/api/`)
 - `/api/health` - Health check endpoint
 - `/api/rankings/lse` - Least squares power rankings over time
 - `/api/rankings/logistic` - Logistic regression power rankings over time  
 - `/api/train` - POST endpoint for training ML models with custom pipelines
 
-#### Statistical Analysis Functions
-- `least_squares_power_esitimator()` - Uses sparse matrix operations (lil_matrix/lsqr) for team power ratings
-- `logistic_power_esitimator()` - Logistic regression approach with train/test split
-- `calc_by_dates()` - Processes rankings over date ranges for temporal analysis
-- Both functions handle team-vs-team sparse matrices for efficient computation
+#### Service Layer (`app/services/`)
+- **DataService**: Database operations and data loading
+- **RankingService**: Statistical analysis and team ranking calculations
+- **TrainingService**: Machine learning model training and management
 
-#### Machine Learning Pipeline
-- Supports multiple model types: 'basic-margin' (LinearRegression), 'neural' (placeholder)
-- Uses scikit-learn Pipeline with OneHotEncoder preprocessing
-- Models saved as joblib .pkl files with naming: `{key}_{asOf}.pkl`
-- Training endpoint accepts JSON with features, targets, key, and asOf parameters
+#### Statistical Analysis (`app/statistical/`)
+- `least_squares_power_estimator()` - Uses sparse matrix operations (lil_matrix/lsqr) for team power ratings
+- `logistic_power_estimator()` - Logistic regression approach with train/test split
+- Custom ML transformers for sports data processing
+
+#### Configuration Management (`app/config/`)
+- Environment-based configuration (development, production, testing)
+- Centralized settings management with proper defaults
+- Support for different database configurations per environment
 
 ### Database Configuration
 - Requires existing PostgreSQL database with sports data schema

@@ -21,7 +21,7 @@ def create_models(db):
                 'team_id': self.team_id,
                 'stat_type': self.stat_type,
                 'value': self.value,
-                'timestamp': self.timestamp.isoformat()
+                'timestamp': self.timestamp.isoformat() if hasattr(self, 'timestamp') and self.timestamp else None
             }
     
-    return TeamStatistic 
+    return TeamStatistic
