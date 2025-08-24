@@ -2,6 +2,11 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 
+
+def get_logger(name: str) -> logging.Logger:
+    """Get a logger instance with the given name"""
+    return logging.getLogger(name)
+
 def setup_logging(app):
     """Set up logging configuration"""
     if not app.debug and not app.testing:

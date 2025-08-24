@@ -16,7 +16,8 @@ def main():
     print("Database URL: ", os.getenv('DATABASE_URL'))
     print("Swagger UI available at: /swagger/")
     
-    app.run(debug=app.config.get('DEBUG', False), host='0.0.0.0', port=5000)
+    port = int(os.getenv('FLASK_RUN_PORT', 8080))
+    app.run(debug=app.config.get('DEBUG', False), host='0.0.0.0', port=port)
 
 if __name__ == '__main__':
     main()
