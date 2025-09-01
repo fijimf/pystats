@@ -59,14 +59,15 @@ pipeline {
                     '''
                     
                     // Run application with database connection
-                    sh '''
+                    def dockerTag = env.BRANCH_NAME.startsWith('release') ? 'latest' : env.BUILD_NUMBER
+                    sh """
                         docker run -d --name test-container \
                             --network test-network \
                             -e DATABASE_URL=postgresql://postgres:p@ssw0rd@test-db:5432/deepfij \
                             -e FLASK_APP=app.py \
                             -e FLASK_ENV=production \
                             -p 8000:8000 \
-                            ${DOCKER_IMAGE}:${env.BRANCH_NAME.startsWith('release') ? 'latest' : env.BUILD_NUMBER}
+                            ${DOCKER_IMAGE}:${dockerTag}
                         
                         # Wait for application to be ready
                         echo "Waiting for application to be ready..."
@@ -89,7 +90,7 @@ pipeline {
                             docker logs test-container
                             exit 1
                         }
-                    '''
+                    """
                 }
             }
         }
