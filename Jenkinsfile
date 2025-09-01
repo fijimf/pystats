@@ -63,7 +63,7 @@ pipeline {
                     sh """
                         docker run -d --name test-container \
                             --network test-network \
-                            -e DATABASE_URL=postgresql://postgres:p@ssw0rd@test-db:5432/deepfij \
+                            -e DATABASE_URL=postgresql://postgres:p\@ssw0rd@test-db:5432/deepfij \
                             -e FLASK_APP=app.py \
                             -e FLASK_ENV=production \
                             -p 8000:8000 \
