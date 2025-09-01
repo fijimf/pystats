@@ -76,7 +76,7 @@ pipeline {
                                 echo "Application is ready!"
                                 break
                             fi
-                            if [ $i -eq 30 ]; then
+                            if [ \$i -eq 30 ]; then
                                 echo "Application failed to start"
                                 docker logs test-container
                                 exit 1
