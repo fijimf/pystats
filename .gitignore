@@ -26,3 +26,4 @@ logs/
 *.pkl
 app_old.py
 models_old.py
+/venv/
